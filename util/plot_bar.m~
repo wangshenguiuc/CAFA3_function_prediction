@@ -1,0 +1,22 @@
+function plot_bar(our_mic_auroc,our_mac_auroc)
+
+% base_mic_auroc = [0.861215	0.836237	0.861801	0.841151	0.853933	0.83177	0.81074	0.841718	0.820435	0.826713	0.811056	0.818962	0.850196	0.817369	0.82087];
+% base_mac_auroc = [0.852692	0.82616	0.843369	0.829159	0.834165	0.818705	0.811571	0.82636	0.808676	0.797776	0.792017	0.819921	0.831162	0.801516	0.803495];
+base_mic_auroc = [0.853933 0.826713 0.82087];
+base_mac_auroc = [0.834165 0.797776 0.803495];
+
+mic_auroc = [base_mic_auroc;our_mic_auroc']';
+
+mac_auroc = [base_mac_auroc;our_mac_auroc']';
+
+
+name={'MF mic3-300','BP mic3-300','CC mic3-300',...
+    'MF mac3-300','BP mac3-300','CC mac3-300'};
+
+bar([mic_auroc;mac_auroc])
+ylim([0.75 0.9])
+legend('clusDCA','LINE');
+set(gca,'xticklabel',name)
+
+end
+

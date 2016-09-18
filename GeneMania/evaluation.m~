@@ -1,0 +1,124 @@
+% Evaluate prediction performance.
+%
+% [Input]
+% class_score: (# test case) x (# class) matrix of predicted class scores.
+%              Higher number represents higher confidence.
+% label: (# test case) x (# class) matrix of ground truth annotations.
+%        Note each case can have multiple labels
+%
+% [Output]
+% acc: accuracy measure. Pick top prediction for each test case and
+%      see how often it matches with one of the true labels.
+% f1: micro-averaged F1-score. Pick top alpha predictions for each test case,
+%     calculate the contigency table for each class, sum up the table across
+%     all classes then calculate the F1-score.
+%
+function [mic_auc] = evaluation(score_m, labels,remove_list)
+% alpha = 3;
+% 
+% label = label > 0;
+% 
+% [ncase nclass] = size(class_score)
+% 
+% [~,o] = sort(class_score, 2, 'descend');
+% p = sub2ind(size(label), (1:ncase)', o(:,1));
+% acc = mean(label(p));
+if min(min(labels))<0
+    labels = (labels+1)/2;
+end
+nlabel = size(labels,2);
+[g1,g2] = textread('/home/swang141/research/Bio Network Ontology Prediction/GoPrediction//Data/MouseGraph/noisogo_namespace.txt', '%d%d');
+length(g1)
+npos=zeros(1,nlabel);
+st=[3,11,31,101,3];
+ed=[10,30,100,300,300];
+mic_auc_l=[];
+for i=1:nlabel
+    npos(i)=nnz(labels(:,i));
+end
+npos(1:5)
+for i=1:3
+    func_t=g1(g2==i);
+    for j=1:4
+        cat=func_t(npos(func_t)>=st(j) & npos(func_t)<=ed(j));
+        cat = cat';
+        mic_auc = 0;
+        count = 0;
+        ap=0;
+        apc=0;
+        for k=cat
+            if ~isempty(find(remove_list==k, 1))
+                continue
+            end
+            auc = calcROCarea(score_m(:,k),labels(:,k));
+            prec = 0;
+            if ~isnan(prec)
+                ap = ap + prec;
+                apc = apc + 1;
+            end
+            if ~isnan(auc)
+                count = count + 1;                
+                mic_auc = mic_auc + auc;
+                mic_auc_l=[mic_auc_l,mic_auc];
+            end
+        end
+        s=score_m(:,cat);
+        s=s(:);
+        l=labels(:,cat);
+        l=l(:);
+        mac_auc = calcROCarea(s,l);
+        fprintf('type=%d,cate=%d,ap=%f,mic_auc=%f,var=%f,std=%f,mac_auc=%f,count=%d,apc=%d,total=%d\n',i,j,ap/apc,mic_auc/count,var(mic_auc_l),std(mic_auc_l),mac_auc,count,apc,length(cat));
+   end
+end
+% anss = 0;
+% ncount = 0;
+% score_v=[];
+% labels_v=[];
+% for i=nclass:-1:1
+%     npos = length(find(label(:,i)==1));
+%     mauc = calcROCarea(class_score(:,i), label(:,i));
+%     if ~isnan(mauc)
+%         anss = anss + mauc;
+%         ncount = ncount + 1;
+%     end
+%     
+%     score_v = [score_v,class_score(:,i)];
+%     labels_v = [labels_v,label(:,i)];
+%     Scores = score_v(:);
+%     Labels = labels_v(:);
+%     
+%     if mod(i,100)==0
+%         mac_auc = calcROCarea(Scores, Labels);
+%         fprintf('avg_auc=%f,mauc=%f,ncount=%d\n',anss/ncount,mac_auc,ncount);
+%     end
+% end
+% mic_auc = anss / ncount;
+% Scores = class_score(:);
+% Labels = label(:);
+% mac_auc = calcROCarea(Scores, Labels);
+
+%   aucTestNum = 1000000;
+%
+%   pos = find(label==1);
+%   neg = find(label==0);
+%
+%   lp = length(pos);
+%   ln = length(neg);
+%
+% %   fprintf('auc pos sample=%d, neg sample=%d\n',lp,ln);
+%   cor = 0;
+%   for i=1:aucTestNum
+%     p = randi(lp);
+%     n = randi(ln);
+%     ps = class_score(pos(p));
+%     ns = class_score(neg(n));
+%     if ps>ns
+%         cor = cor + 1;
+%     end
+%     if ps==ns
+%         cor = cor + 0.5;
+%     end
+%   end
+%   auc = cor / aucTestNum;
+
+end

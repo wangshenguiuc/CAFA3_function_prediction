@@ -1,0 +1,131 @@
+% runGeneMANIA.m   --> this is a sample script for creating two networks
+% and ruuning GeneMANIA using these networks and a list of positive genes.
+%
+% %% the input files are
+% Zhang_expData.txt which is microarray data
+% sage_expData_sumTagCounts.txt
+% %%%%
+% %% 1. import the two files:
+%
+% zhang = importdata('Zhang_expData.txt');
+% sage = importdata('sage_expData_sumTagCounts.txt');
+% in these two data files genes are the rows and features are the columns.
+
+% 2. make two association networks in a cell structure with fields data,
+% collabels, rowlabels --> this is done so that we can use the
+% combineKernel.m function to combine the networks (to make sure they have
+% the same gene order)
+%
+% K = 50; % set the number of neigbours
+%
+% network{1}.data = makeAssociationKernel(zhang.data', K);
+% network{1}.rowlabels = zhang.textdata(2:end,1);
+% network{1}.collabels = network{1}.rowlabels;
+%
+% network{2}.data = makeAssociationKernel(sage.data',K);
+% network{2}.rowlabels = sage.textdata(2:end,1);
+% network{2}.collabels = network{2}.rowlabels;
+%
+numNetworks = 6;
+nnode =6311;
+nlabel = 4240;
+specie = 'Yeast';
+% numNetworks = 1;
+% nlabel = 16662;
+% nnode = 13708;
+%% 3. normalize the networks
+for ii = 1:numNetworks
+    file_name = ['/home/swang141/research/Bio Network Ontology Prediction/GoPrediction/Data/',specie,'Graph/noisoppi',num2str(ii),'.txt'];
+    [g1,g2,f1] = textread(file_name, '%d%d%f');
+    n = nnode;
+    A = sparse(g1,g2,f1,n,n);
+    kernels{ii} = normalizeKernel(A);
+end
+%
+
+
+[g1,g2] = textread(['/home/swang141/research/Bio Network Ontology Prediction/GoPrediction/Data/',specie,'Graph/noisonewAnotationAllNode.txt'], '%d%d');
+labels = sparse(g1,g2,true,nnode,nlabel);
+labels = labels*2-1;
+
+size(labels)
+
+[g1,g2] = textread(['/home/swang141/research/Bio Network Ontology Prediction/GoPrediction/Data/',specie,'Graph/noisogo_namespace.txt'], '%d%d');
+
+length(g1)
+
+% 7. get area under the AUC for prediction, as well as the scores
+pp = randperm(nnode); % this is the permutation index for doing the cross-validation;
+nFolds = 3; % number of cross-validation folds
+anss = 0;
+ncount = 0;
+score_m=zeros(nnode,nlabel);
+size(score_m)
+
+
+npos=zeros(1,nlabel);
+st=[3,11,31,101,3];
+ed=[10,30,100,300,300];
+for ii=1:nlabel
+    npos(ii)=length(find(labels(:,ii)==1));
+end
+
+for i=1:2
+    func_t=g1(g2==i);
+    for tp=1:4
+        remove_list=[];
+        cat=func_t(npos(func_t)>=st(tp) & npos(func_t)<=ed(tp));
+        cat= cat';
+        length(cat)
+        final_score = zeros(nnode,nlabel);
+        ct = 0;
+        mic_auc = 0;
+        mac_auc = 0;
+        for nr=1:3
+            pp = randperm(nnode);
+            for ii=cat
+                ct= ct+1;
+                try
+                    [areas, r, b, weights] = predictClassesCV(labels(:,ii), kernels, nFolds, 1,pp);
+                    %                 fprintf('suc');
+                catch
+                    remove_list = [remove_list,ii];
+                    %                 fprintf('fail')
+                    continue
+                end
+                xx = b;
+                final_score(pp(1:floor(nnode/nFolds)),ii) = xx(pp(1:floor(nnode/nFolds)));
+                %             score_m(1:length(b),ii) = b;
+                %             areas = areas(~isnan(areas));
+                %             if size(areas,2)>0
+                %                 anss = anss + mean(areas);
+                %                 ncount = ncount + 1;
+                %                 fprintf('auc=%f, ncount=%d, mic_auc=%f, npos=%d, ii=%d\n',mean(areas),ncount,anss/ncount,npos,ii);
+                %             end
+                %     score_v = score_m(:,1:ii);
+                %     label_v = labels(:,1:ii);
+                %     score_v=score_v(:);
+                %     label_v = label_v(:);
+                %     if mod(ii,100)==0
+                %         mauc = calcROCarea(score_v, (label_v+1)/2);
+                %         fprintf('mac_auc=%f, ii=%d\n',mauc,ii);
+                %     end
+            end
+            [tmic,tmac,tap_10,tap]=evaluation_test(final_score(pp(1:floor(nnode/nFolds)),:),labels(pp(1:floor(nnode/nFolds)),:),labels,specie,i,tp,cat,remove_list);
+%             mic_auc  = mic_auc + tmic / 3;
+%             mac_auc = mac_auc + tmac / 3;
+            mic_auc = [mic_auc,tmic];
+            mac_auc = [mac_auc,tmac];
+            ap_10 = []
+            
+        end
+        fprintf('type=%d,cat=%d,mic=%f,mac=%f\n',i,tp,mic_auc,mac_auc);
+    end
+end
+% size(remove_list)
+% mauc = calcROCarea(score_v, ((label_v+1)/2));
+% fprintf('mac_auc = %f \n',mauc);
+
+
+
+

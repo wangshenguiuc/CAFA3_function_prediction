@@ -1,0 +1,43 @@
+function final_score = test_clusDCA(Gene_embedding, GO_embedding, Gene_GO_train_annotation,Gene_GO_test_annotation, target_gene,method)
+%CLUSDCA Summary of this function goes here
+%   Detailed explanation goes here
+rng(2)
+
+Gene_GO_train_annotation = double(Gene_GO_train_annotation>0);
+ly = GO_embedding;
+active_gene = find(sum(Gene_GO_train_annotation,2)>0);
+active_gene = setdiff(active_gene,target_gene);
+
+label_tp = Gene_GO_train_annotation(active_gene,:);
+lx = Gene_embedding(active_gene,:);
+lx_tgt = Gene_embedding(target_gene,:);
+ntgt = length(target_gene);
+nnode = size(lx,1);
+ngo = size(Gene_GO_train_annotation,2);
+
+if strcmp(method,'bilinaer')
+    w = embed(1:nnode,label_tp,lx,ly);
+    final_score = Gene_embedding(target_gene,:)*w*ly';
+elseif strcmp(method,'blast')
+    sim_matrix = 1 - pdist2(lx_tgt,lx);
+    final_score = zeros(ntgt,ngo);
+    [o,v] = sort(sim_matrix,2,'descend');
+    topk = 1000;
+    for i=1:ntgt
+         anno_mat = bsxfun(@times, label_tp(v(i,1:topk),:), sim_matrix(i,v(i,1:topk))');
+         final_score(i,:) =  max(anno_mat, [], 1);
+    end
+    
+elseif strcmp(method,'kNN')
+    sim_matrix = 1 - pdist2(lx_tgt,lx);
+    final_score = zeros(ntgt,ngo);
+    for i=1:ngo
+        active_gene = find(label_tp(:,i)==1);
+        if ~isempty(active_gene)
+            final_score(:,i) = max(sim_matrix(:,active_gene),[],2);
+        end
+    end
+end
+
+end
+
